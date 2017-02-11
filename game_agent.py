@@ -36,10 +36,13 @@ def custom_score(game, player):
     float
         The heuristic value of the current game state to the specified player.
     """
+    # my moves - my opponents's moves
+    return float(len(game.get_legal_moves(player)) - len(game.get_legal_moves(game.get_opponent(player))))
 
-    # TODO: finish this function!
-    raise NotImplementedError
 
+# some utility constants
+POSITIVE_INFINITY = float("inf")
+NEGATIVE_INFINITY = float("-inf")
 
 class CustomPlayer:
     """Game-playing agent that chooses a move using your evaluation function
@@ -118,25 +121,50 @@ class CustomPlayer:
 
         self.time_left = time_left
 
-        # TODO: finish this function!
-
         # Perform any required initializations, including selecting an initial
         # move from the game board (i.e., an opening book), or returning
         # immediately if there are no legal moves
+
+        # initialize current best move
+        best_move = (-1, -1)
+
+        # when no legal moves available
+        if legal_moves is None:
+            return (-1, -1)
 
         try:
             # The search method call (alpha beta or minimax) should happen in
             # here in order to avoid timeout. The try/except block will
             # automatically catch the exception raised by the search method
             # when the timer gets close to expiring
-            pass
+            
+
+            # with iterative deepening
+            if self.iterative:
+                # initialize depth to 1 
+                depth = 1
+                # go deeper
+                while True:
+                    # use chosen method to find best move
+                    current_best, current_move = getattr(self, self.method)(game, depth)
+                    # save current move as best move
+                    best_move = current_move
+                    # increment depth 
+                    depth += 1
+            # without iterative deepening
+            else:
+                # just keep using the search depth
+                # use chosen method to find best move
+                current_best, current_move = getattr(self, self.method)(game, self.search_depth)
+                # save current move as best move
+                best_move = current_move
 
         except Timeout:
             # Handle any actions required at timeout, if necessary
-            pass
+            return best_move
 
         # Return the best move from the last completed search iteration
-        raise NotImplementedError
+        return best_move
 
     def minimax(self, game, depth, maximizing_player=True):
         """Implement the minimax search algorithm as described in the lectures.
@@ -172,8 +200,46 @@ class CustomPlayer:
         if self.time_left() < self.TIMER_THRESHOLD:
             raise Timeout()
 
-        # TODO: finish this function!
-        raise NotImplementedError
+        # when no legal moves available
+        if game.get_legal_moves() is None:
+            return self.score(game, self), (-1, -1)
+
+        # when depth is zero, reaching the end of tree
+        if depth == 0:
+            return self.score(game, self), game.get_player_location(self)
+
+        # at the max layer
+        if maximizing_player:
+            # preassign the current value so that anything could be greater than
+            current_max = NEGATIVE_INFINITY
+            # loop through the game's subsequent valid moves
+            for move in game.get_legal_moves():
+                # apply the move and create the next minimum layer
+                # and find the either min/max value of that layer
+                next_max, next_move = self.minimax(game.forecast_move(move), depth - 1, False)
+                # compare it with the current maximum value
+                if next_max > current_max:
+                    current_max = next_max
+                    current_max_move = move
+            # propagate the current maximum value up
+            return current_max, current_max_move
+        # at the min layer
+        else:
+            # preassign the current value possible so that anything could be less than
+            current_min = POSITIVE_INFINITY
+            # loop through the game's subsequent valid moves
+            for move in game.get_legal_moves():
+                # apply the move and create the next maximum layer
+                # and find the either min/max value of that layer
+                next_min, next_move = self.minimax(game.forecast_move(move), depth - 1, True)
+                # compare it with the current minimum value
+                if next_min < current_min:
+                    current_min = next_min
+                    current_min_move = move
+            # propagate the current minimum value up
+            return current_min, current_min_move
+
+
 
     def alphabeta(self, game, depth, alpha=float("-inf"), beta=float("inf"), maximizing_player=True):
         """Implement minimax search with alpha-beta pruning as described in the
@@ -216,5 +282,56 @@ class CustomPlayer:
         if self.time_left() < self.TIMER_THRESHOLD:
             raise Timeout()
 
-        # TODO: finish this function!
-        raise NotImplementedError
+        # when no legal moves available
+        if game.get_legal_moves() is None:
+            return self.score(game, self), (-1, -1)
+
+        # when depth is zero, reaching the end of tree
+        if depth == 0:
+            return self.score(game, self), game.get_player_location(self)
+
+        # at the max layer
+        if maximizing_player:
+            # preassign the current value so that any thing could be greater than
+            current_max = NEGATIVE_INFINITY
+            # loop through game's subsequent moves
+            for move in game.get_legal_moves():
+                # apply the move and create the next minimum layer
+                next_max, next_move = self.alphabeta(game.forecast_move(move), depth - 1, alpha, beta, False)
+                # compare the next value with current maximum value
+                if next_max > current_max:
+                    current_max = next_max
+                    current_max_move = move
+                # compare current alpha with current maximum value
+                # so that a lower bound can be updated
+                if current_max > alpha:
+                    alpha = current_max
+                # Sanity check: compare alpha with beta to check if the 
+                # upper bound is already smaller than or equal to the  
+                # lower bound, if so, ignore the rest of this branch
+                if alpha >= beta:
+                    break
+            return current_max, current_max_move
+        # at the min layer
+        else:
+            # preassign the current value so that anything could be less than
+            current_min = POSITIVE_INFINITY
+            # loop through the game's subsequent moves
+            for move in game.get_legal_moves():
+                # apply the move and create the next maximum layer
+                next_min, next_move = self.alphabeta(game.forecast_move(move), depth - 1, alpha, beta, True)
+                # compare the next value with current mimum value
+                if next_min < current_min:
+                    current_min = next_min
+                    current_min_move = move
+                # compare current beta with the current minimum value
+                # so that an upper bound can be created
+                if current_min < beta:
+                    beta = current_min
+                # Sanity check: compare alpha with beta to check if the 
+                # upper bound is already smaller than or equal to the  
+                # lower bound, if so, ignore the rest of this branch
+                if alpha >= beta:
+                    break
+            return current_min, current_min_move
+
