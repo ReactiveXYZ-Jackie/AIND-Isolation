@@ -7,6 +7,8 @@ You must test your agent's strength against a set of agents with known
 relative strength using tournament.py and include the results in your report.
 """
 import random, math
+from opening_book import OpeningBook
+from knowledge_board_states import BoardStateKnowledge
 class Timeout(Exception):
     """Subclass base exception for code clarity."""
     pass
@@ -38,23 +40,18 @@ def custom_score(game, player):
     float
         The heuristic value of the current game state to the specified player.
     """
-    if game.is_loser(player):
-        return NEGATIVE_INFINITY
 
-    if game.is_winner(player):
-        return POSITIVE_INFINITY
-
-    # Option 0: 
+    # Option 1: 
     # Score indicated by the #player_moves - #opponent_moves
     def better_with_more_moves_than_opponent():
         return float(len(game.get_legal_moves(player)) - len(game.get_legal_moves(game.get_opponent(player))))
 
-    # Option 1:
+    # Option 2:
     # Score indicated by the #player_moves - 2 * #opponent_moves
     def better_with_more_moves_than_opponent_aggressive():
         return float(len(game.get_legal_moves(player)) - 2 * len(game.get_legal_moves(game.get_opponent(player))))
 
-    # Option 2:
+    # Option 3:
     # Score indicated by the relative distance between players to the center of the board
     def better_with_closer_distance_to_center():
         player_location = game.get_player_location(player)
@@ -69,12 +66,15 @@ def custom_score(game, player):
         # return ratio
         return opponent_distance / player_distance
 
-    # Option 3:
-    # Combining Option 0 and Option 2
+    # Option 4:
+    # Combining Option 1 and Option 3
     def better_with_more_moves_and_distance_to_center():
         return better_with_more_moves_than_opponent() + better_with_closer_distance_to_center()
 
     return better_with_more_moves_and_distance_to_center()
+
+
+
 
 class CustomPlayer:
     """Game-playing agent that chooses a move using your evaluation function
@@ -115,6 +115,14 @@ class CustomPlayer:
         self.method = method
         self.time_left = None
         self.TIMER_THRESHOLD = timeout
+
+        # opening book for getting hints
+        self.opening_book = OpeningBook()
+        self.opening_book.set_current_player(self)
+
+        # knowledge of board states
+        self.knowledge = BoardStateKnowledge()
+        self.knowledge.set_current_player(self)
 
     def get_move(self, game, legal_moves, time_left):
         """Search for the best move from the available legal moves and return a
@@ -164,6 +172,11 @@ class CustomPlayer:
         # when no legal moves available
         if legal_moves is None:
             return best_move
+
+        # scan opening books
+        opening_move = self.opening_book.move_for(game)
+        if opening_move is not None:
+            return opening_move
 
         try:
             # The search method call (alpha beta or minimax) should happen in

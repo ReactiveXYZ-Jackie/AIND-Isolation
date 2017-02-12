@@ -69,6 +69,13 @@ class Board(object):
         """
         return self.__inactive_player__
 
+    def is_player_one(self, player):
+        return self.__player_1__ == player
+
+    def is_player_two(self, player):
+        return self.__player_2__ == player
+
+
     def get_opponent(self, player):
         """
         Return the opponent of the supplied player.
